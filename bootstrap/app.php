@@ -13,10 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Remove problematic middleware for now
-        $middleware->web(remove: [
-            \App\Http\Middleware\TrustProxies::class,
-        ]);
+        //
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
