@@ -163,7 +163,7 @@
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    ₹{{ number_format($ride->fare_amount ?? 0, 2) }}
+                                    ₹{{ number_format($ride->actual_fare ?? 0, 2) }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                     {{ $ride->created_at->format('d M Y, H:i') }}

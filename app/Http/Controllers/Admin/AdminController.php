@@ -43,8 +43,8 @@ class AdminController extends Controller
             'total_rides' => Ride::count(),
             'completed_rides' => Ride::where('status', 'completed')->count(),
             'active_rides' => Ride::whereIn('status', ['pending', 'accepted', 'started'])->count(),
-            'total_earnings' => Ride::where('status', 'completed')->sum('fare_amount'),
-            'drivers_online' => Driver::where('status', 'online')->count()
+            'total_earnings' => Ride::where('status', 'completed')->sum('actual_fare'),
+            'drivers_online' => Driver::where('is_online', true)->count()
         ];
 
         $recent_rides = Ride::with(['rider.user', 'driver.user'])
@@ -148,14 +148,14 @@ class AdminController extends Controller
 
     public function earnings()
     {
-        $totalEarnings = Ride::where('status', 'completed')->sum('fare_amount');
+        $totalEarnings = Ride::where('status', 'completed')->sum('actual_fare');
         $todayEarnings = Ride::where('status', 'completed')
-                           ->whereDate('completed_at', today())
-                           ->sum('fare_amount');
+                           ->whereDate('ride_end_time', today())
+                           ->sum('actual_fare');
         $monthEarnings = Ride::where('status', 'completed')
-                           ->whereMonth('completed_at', now()->month)
-                           ->whereYear('completed_at', now()->year)
-                           ->sum('fare_amount');
+                           ->whereMonth('ride_end_time', now()->month)
+                           ->whereYear('ride_end_time', now()->year)
+                           ->sum('actual_fare');
 
         $earningsData = [
             'total' => $totalEarnings,

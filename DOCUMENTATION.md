@@ -346,13 +346,4 @@ For real-time functionality, consider implementing:
 - Web server logs: Check Apache/Nginx error logs
 - Database logs: Check MySQL error logs
 
-## Version Information
-- Laravel Version: 10.x
-- PHP Version: 8.1+
-- Database: MySQL 5.7+
-- Authentication: Laravel Sanctum
-- Frontend: Tailwind CSS (CDN)
 
----
-
-For technical support or questions, please refer to the Laravel documentation or contact the development team.

@@ -72,13 +72,22 @@ class DriverController extends Controller
             ], 404);
         }
 
-        $driver->update(['status' => $request->status]);
+        // Map status to boolean fields
+        $isOnline = in_array($request->status, ['online', 'busy']);
+        $isAvailable = $request->status === 'online';
+
+        $driver->update([
+            'is_online' => $isOnline,
+            'is_available' => $isAvailable
+        ]);
 
         return response()->json([
             'status' => 'success',
             'message' => 'Status updated successfully',
             'data' => [
-                'status' => $driver->status
+                'is_online' => $driver->is_online,
+                'is_available' => $driver->is_available,
+                'status' => $request->status
             ]
         ]);
     }
