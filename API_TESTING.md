@@ -303,10 +303,54 @@ curl -X GET http://127.0.0.1:8000/admin/dashboard \
 - **Email:** driver2@test.com | **Password:** password
 - **Email:** driver3@test.com | **Password:** password
 
+## How to Get Bearer Tokens
+
+### PowerShell Method (Recommended)
+```powershell
+# Run the demo script
+.\get_tokens.ps1
+
+# Or manually:
+$response = Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/auth/login" -Method Post -ContentType "application/json" -Body '{"email":"rider1@test.com","password":"password"}'
+$token = $response.data.token
+Write-Host $token
+```
+
+### Command Line Method
+```bash
+# For Windows PowerShell, use Invoke-RestMethod instead of curl
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/auth/login" -Method Post -ContentType "application/json" -Body '{"email":"rider1@test.com","password":"password"}'
+```
+
+### Example Working Tokens (Generated Live)
+Replace these with fresh tokens from login:
+- **RIDER_TOKEN:** `2|6Xu3OroHumxYIkdaXwkJ2goW1NMq8RDmqZVfYq7y2695dad0`
+- **DRIVER_TOKEN:** `3|AbC123XyZ456TokenExampleHere789`
+
+## Working Examples
+
+### Login & Get Token
+```bash
+# This returns: {"status":"success","message":"Login successful","data":{"user":{...},"token":"YOUR_TOKEN"}}
+curl -X POST http://127.0.0.1:8000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"rider1@test.com","password":"password"}'
+```
+
+### Use Token in Requests
+```bash
+# Replace YOUR_ACTUAL_TOKEN with the token from login response
+curl -X GET http://127.0.0.1:8000/api/rider/profile \
+  -H "Authorization: Bearer YOUR_ACTUAL_TOKEN" \
+  -H "Accept: application/json"
+```
+
 ## Notes
 
-1. Replace `YOUR_TOKEN_HERE`, `YOUR_RIDER_TOKEN`, `YOUR_DRIVER_TOKEN` with actual tokens received from login
-2. All API endpoints return JSON responses
-3. Authentication is required for most endpoints (except register, login, and test)
-4. For ride operations, use the correct user type (rider for booking, driver for accepting)
-5. Ride IDs in the demo data: RIDE001, RIDE002, RIDE003
+1. **✅ FIXED:** personal_access_tokens table created - API authentication now working!
+2. Replace `YOUR_TOKEN_HERE`, `YOUR_RIDER_TOKEN`, `YOUR_DRIVER_TOKEN` with actual tokens received from login
+3. All API endpoints return JSON responses
+4. Authentication is required for most endpoints (except register, login, and test)
+5. For ride operations, use the correct user type (rider for booking, driver for accepting)
+6. Ride IDs in the demo data: RIDE001, RIDE002, RIDE003
+7. **Use `get_tokens.ps1` script to quickly get working tokens for testing**
