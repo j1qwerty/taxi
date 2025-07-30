@@ -22,6 +22,7 @@ return new class extends Migration
             $table->text('drop_address');
             $table->decimal('drop_latitude', 10, 8);
             $table->decimal('drop_longitude', 11, 8);
+            $table->enum('vehicle_type', ['bike', 'auto', 'sedan', 'suv'])->default('sedan');
             $table->decimal('distance', 10, 2)->nullable();
             $table->decimal('estimated_fare', 10, 2);
             $table->decimal('actual_fare', 10, 2)->nullable();

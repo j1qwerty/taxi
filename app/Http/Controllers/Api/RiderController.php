@@ -105,10 +105,18 @@ class RiderController extends Controller
             'vehicle_type' => 'nullable|in:bike,auto,sedan,suv'
         ]);
 
-        // Mock fare calculation
-        $baseFare = 50;
-        $perKmRate = 12;
-        $estimatedDistance = 5.5; // Mock distance in km
+        // Calculate fare based on vehicle type
+        $fareRates = [
+            'bike' => ['base' => 25, 'per_km' => 8],
+            'auto' => ['base' => 35, 'per_km' => 10],
+            'sedan' => ['base' => 50, 'per_km' => 12],
+            'suv' => ['base' => 70, 'per_km' => 15]
+        ];
+
+        $vehicleType = $request->vehicle_type ?? 'sedan'; // Default to sedan if not provided
+        $baseFare = $fareRates[$vehicleType]['base'];
+        $perKmRate = $fareRates[$vehicleType]['per_km'];
+        $estimatedDistance = 5.5; // Mock distance in km - in production, calculate using mapping API
         $estimatedFare = $baseFare + ($estimatedDistance * $perKmRate);
 
         return response()->json([

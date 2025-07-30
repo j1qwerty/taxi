@@ -97,7 +97,7 @@ This is a comprehensive taxi booking application built with Laravel 10.x, featur
 
 #### Rides Table
 - Core ride management
-- Fields: booking_id, rider_id, driver_id, pickup/drop coordinates, fare_amount, status
+            - Fields: booking_id, rider_id, driver_id, pickup/drop coordinates, estimated_fare, actual_fare, status
 - Statuses: pending, accepted, started, completed, cancelled
 
 #### Additional Tables

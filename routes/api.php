@@ -45,6 +45,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{ride}/rate', [RideController::class, 'rateRide']);
         Route::get('/history', [RideController::class, 'getRideHistory']);
     });
+    
+    // Alternative ride routes for compatibility
+    Route::prefix('rides')->group(function () {
+        Route::post('/request', [RideController::class, 'requestRide']);
+        Route::get('/{ride}/status', [RideController::class, 'getRideStatus']);
+        Route::post('/{ride}/cancel', [RideController::class, 'cancelRide']);
+        Route::post('/{ride}/rate', [RideController::class, 'rateRide']);
+        Route::get('/history', [RideController::class, 'getRideHistory']);
+    });
 });
 
 // Test route

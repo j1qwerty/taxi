@@ -39,8 +39,10 @@ class DriverController extends Controller
         if (!$driver) {
             $driver = Driver::create([
                 'user_id' => $user->id,
-                'referral_code' => 'D' . strtoupper(substr(md5($user->id . time()), 0, 8)),
-                'status' => 'offline'
+                'referral_code' => 'DRIVER' . str_pad($user->id, 6, '0', STR_PAD_LEFT),
+                'is_online' => false,
+                'is_available' => true,
+                'approval_status' => 'pending'
             ]);
         }
 
@@ -191,13 +193,21 @@ class DriverController extends Controller
             ], 400);
         }
 
+        // Check if driver vehicle type matches requested vehicle type
+        if ($driver->vehicle_type !== $ride->vehicle_type) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Vehicle type mismatch. Required: ' . $ride->vehicle_type . ', Your vehicle: ' . $driver->vehicle_type
+            ], 400);
+        }
+
         $ride->update([
             'driver_id' => $driver->id,
             'status' => 'accepted',
             'accepted_at' => now()
         ]);
 
-        $driver->update(['status' => 'busy']);
+        $driver->update(['is_available' => false]);
 
         return response()->json([
             'status' => 'success',
@@ -232,10 +242,10 @@ class DriverController extends Controller
             $updateData['started_at'] = now();
         } elseif ($request->status === 'completed') {
             $updateData['completed_at'] = now();
-            $driver->update(['status' => 'online']);
+            $driver->update(['is_available' => true]);
         } elseif ($request->status === 'cancelled') {
             $updateData['cancelled_at'] = now();
-            $driver->update(['status' => 'online']);
+            $driver->update(['is_available' => true]);
         }
 
         $ride->update($updateData);

@@ -32,7 +32,20 @@ class RideController extends Controller
             ], 404);
         }
 
-        // Create new ride request
+        // Calculate fare based on vehicle type
+        $fareRates = [
+            'bike' => ['base' => 25, 'per_km' => 8],
+            'auto' => ['base' => 35, 'per_km' => 10],
+            'sedan' => ['base' => 50, 'per_km' => 12],
+            'suv' => ['base' => 70, 'per_km' => 15]
+        ];
+
+        $vehicleType = $request->vehicle_type;
+        $baseFare = $fareRates[$vehicleType]['base'];
+        $perKmRate = $fareRates[$vehicleType]['per_km'];
+        $estimatedDistance = 5.5; // Mock distance in km - in production, calculate using mapping API
+        $estimatedFare = $baseFare + ($estimatedDistance * $perKmRate);
+
         $ride = Ride::create([
             'rider_id' => $rider->id,
             'pickup_latitude' => $request->pickup_latitude,
@@ -43,14 +56,31 @@ class RideController extends Controller
             'drop_address' => $request->drop_address,
             'vehicle_type' => $request->vehicle_type,
             'payment_method' => $request->payment_method,
-            'status' => 'pending',
-            'booking_id' => 'TXI' . time() . rand(1000, 9999)
+            'status' => 'searching',
+            'ride_id' => 'TXI' . time() . rand(1000, 9999),
+            'estimated_fare' => $estimatedFare,
+            'base_fare' => $baseFare,
+            'per_km_charge' => $perKmRate,
+            'otp' => rand(1000, 9999)
         ]);
+
+        // Find available drivers with matching vehicle type
+        $availableDrivers = Driver::where('vehicle_type', $vehicleType)
+            ->where('is_online', true)
+            ->where('is_available', true)
+            ->where('approval_status', 'approved')
+            ->whereNotNull('current_latitude')
+            ->whereNotNull('current_longitude')
+            ->get();
 
         return response()->json([
             'status' => 'success',
             'message' => 'Ride requested successfully',
-            'data' => $ride
+            'data' => [
+                'ride' => $ride,
+                'available_drivers_count' => $availableDrivers->count(),
+                'estimated_wait_time' => '5-8 minutes'
+            ]
         ]);
     }
 
