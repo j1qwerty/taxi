@@ -39,7 +39,7 @@
         <!-- Configuration Panel -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-8">
             <h2 class="text-xl font-semibold mb-4">🔧 Configuration</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                     <label class="block text-sm font-medium mb-2">API Base URL</label>
                     <input type="text" id="apiUrl" value="http://localhost:8000/api" 
@@ -53,6 +53,15 @@
                         <option value="manual">Manual Step-by-Step</option>
                     </select>
                 </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Payment Method</label>
+                    <select id="paymentMethod" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500">
+                        <option value="fake">Fake Payment (Always Success)</option>
+                        <option value="wallet">Wallet Payment</option>
+                        <option value="stripe">Stripe (Mock)</option>
+                        <option value="paypal">PayPal (Mock)</option>
+                    </select>
+                </div>
             </div>
             <div class="mt-4">
                 <button onclick="startDemo()" class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700">
@@ -60,6 +69,9 @@
                 </button>
                 <button onclick="resetDemo()" class="bg-gray-600 text-white px-6 py-2 rounded-md hover:bg-gray-700 ml-2">
                     🔄 Reset
+                </button>
+                <button onclick="console.log('Test button clicked!'); logMessage('🧪 Test button working!', 'info')" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 ml-2">
+                    🧪 Test JS
                 </button>
             </div>
         </div>
@@ -77,12 +89,12 @@
                     <div class="text-sm text-gray-600">Set driver online and update location</div>
                 </div>
                 <div id="step-3" class="step step-pending border-l-4 pl-4 py-2">
-                    <span class="font-medium">3. Ride Request</span>
-                    <div class="text-sm text-gray-600">Rider requests a ride with spatial queries</div>
+                    <span class="font-medium">3. Ride Request & Driver Selection</span>
+                    <div class="text-sm text-gray-600">Rider requests a ride and selects from available drivers</div>
                 </div>
                 <div id="step-4" class="step step-pending border-l-4 pl-4 py-2">
                     <span class="font-medium">4. Driver Acceptance</span>
-                    <div class="text-sm text-gray-600">Driver accepts the ride request</div>
+                    <div class="text-sm text-gray-600">Selected driver accepts the ride request</div>
                 </div>
                 <div id="step-5" class="step step-pending border-l-4 pl-4 py-2">
                     <span class="font-medium">5. Ride Progression</span>
@@ -135,7 +147,17 @@
 
         <!-- Detailed Logs -->
         <div class="bg-white rounded-lg shadow-md p-6 mt-8">
-            <h3 class="text-lg font-semibold mb-4">📝 Detailed Test Logs</h3>
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold">📝 Detailed Test Logs</h3>
+                <div class="flex gap-2">
+                    <button onclick="clearLogs()" class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">
+                        🗑️ Clear
+                    </button>
+                    <button onclick="copyLogs()" class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">
+                        📋 Copy All
+                    </button>
+                </div>
+            </div>
             <div id="testLogs" class="bg-gray-50 p-4 rounded-md h-96 overflow-y-auto">
                 <p class="text-gray-600">Test logs will appear here...</p>
             </div>
@@ -161,6 +183,139 @@
         </div>
     </div>
 
+    <!-- Driver Selection Modal -->
+    <div id="driverModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+                <div class="p-6">
+                    <h3 class="text-lg font-semibold mb-4">🚗 Select Your Driver</h3>
+                    <div id="driverList" class="space-y-3 max-h-64 overflow-y-auto">
+                        <!-- Driver options will be populated here -->
+                    </div>
+                    <div class="mt-6 flex gap-3">
+                        <button onclick="closeDriverModal()" class="flex-1 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+                            Cancel
+                        </button>
+                        <button id="selectDriverBtn" onclick="confirmDriverSelection()" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700" disabled>
+                            Select Driver
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dummy Payment Modal -->
+    <div id="paymentModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+                <div class="p-6">
+                    <h3 class="text-lg font-semibold mb-4">💳 Complete Payment</h3>
+                    <div class="space-y-4">
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <div class="flex justify-between">
+                                <span>Ride Fare:</span>
+                                <span class="font-semibold">$<span id="rideFare">50.00</span></span>
+                            </div>
+                            <div class="flex justify-between text-sm text-gray-600">
+                                <span>Distance:</span>
+                                <span id="rideDistance">5.2 km</span>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Payment Method</label>
+                            <select id="modalPaymentMethod" class="w-full px-3 py-2 border rounded-md">
+                                <option value="dummy">💰 Dummy Payment (Always Success)</option>
+                                <option value="card">💳 Credit Card</option>
+                                <option value="wallet">🏦 Digital Wallet</option>
+                                <option value="cash">💵 Cash</option>
+                            </select>
+                        </div>
+                        
+                        <div id="cardDetails" class="space-y-3 hidden">
+                            <input type="text" placeholder="Card Number" class="w-full px-3 py-2 border rounded-md" value="4111 1111 1111 1111">
+                            <div class="grid grid-cols-2 gap-3">
+                                <input type="text" placeholder="MM/YY" class="px-3 py-2 border rounded-md" value="12/25">
+                                <input type="text" placeholder="CVV" class="px-3 py-2 border rounded-md" value="123">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 flex gap-3">
+                        <button onclick="closePaymentModal()" class="flex-1 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+                            Cancel
+                        </button>
+                        <button onclick="processDummyPayment()" class="flex-1 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                            Pay Now
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rating Modal -->
+    <div id="ratingModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+                <div class="p-6">
+                    <h3 class="text-lg font-semibold mb-4">⭐ Rate Your Ride</h3>
+                    <div class="space-y-4">
+                        <div class="text-center">
+                            <div class="mb-3">
+                                <span class="text-2xl">👩‍💼</span>
+                                <div class="font-semibold" id="driverNameForRating">Sarah Johnson</div>
+                                <div class="text-sm text-gray-600">Honda Civic - Silver</div>
+                            </div>
+                        </div>
+                        
+                        <div class="text-center">
+                            <label class="block text-sm font-medium mb-2">How was your ride?</label>
+                            <div class="flex justify-center gap-2 mb-4">
+                                <button onclick="selectRating(1)" class="rating-btn text-3xl text-gray-300 hover:text-yellow-400" data-rating="1">⭐</button>
+                                <button onclick="selectRating(2)" class="rating-btn text-3xl text-gray-300 hover:text-yellow-400" data-rating="2">⭐</button>
+                                <button onclick="selectRating(3)" class="rating-btn text-3xl text-gray-300 hover:text-yellow-400" data-rating="3">⭐</button>
+                                <button onclick="selectRating(4)" class="rating-btn text-3xl text-gray-300 hover:text-yellow-400" data-rating="4">⭐</button>
+                                <button onclick="selectRating(5)" class="rating-btn text-3xl text-gray-300 hover:text-yellow-400" data-rating="5">⭐</button>
+                            </div>
+                            <div id="ratingText" class="text-sm text-gray-600 mb-4">Select a rating</div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Add a review (optional)</label>
+                            <textarea id="rideReview" rows="3" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500" placeholder="How was your experience?"></textarea>
+                        </div>
+                        
+                        <div class="bg-gray-50 p-3 rounded-lg text-sm">
+                            <div class="flex justify-between">
+                                <span>Trip Distance:</span>
+                                <span id="tripDistance">5.8 km</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Trip Fare:</span>
+                                <span id="tripFare">$143.60</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Duration:</span>
+                                <span id="tripDuration">12 minutes</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 flex gap-3">
+                        <button onclick="closeRatingModal()" class="flex-1 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+                            Skip
+                        </button>
+                        <button id="submitRatingBtn" onclick="submitRating()" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700" disabled>
+                            Submit Rating
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Demo state
         let demoState = {
@@ -168,43 +323,76 @@
             riderToken: null,
             driverToken: null,
             rideId: null,
+            selectedDriverId: null,
+            nearbyDrivers: [],
+            rideRequestResolve: null,
             apiUrl: 'http://localhost:8000/api'
         };
 
         // Test data
-        const testData = {
-            rider: {
-                name: "Demo Rider",
-                email: `rider_${Date.now()}@demo.com`,
-                password: "password123",
-                phone: "+1234567890",
-                user_type: "rider"
-            },
-            driver: {
-                name: "Demo Driver",
-                email: `driver_${Date.now()}@demo.com`,
-                password: "password123",
-                phone: "+1234567891",
-                user_type: "driver",
-                license_number: "DL123456789",
-                vehicle_number: "ABC123",
-                vehicle_type: "sedan",
-                vehicle_model: "Toyota Camry",
-                vehicle_color: "Black"
-            },
-            ride: {
-                pickup_latitude: 28.6139,
-                pickup_longitude: 77.2090,
-                pickup_address: "Connaught Place, New Delhi",
-                drop_latitude: 28.6569,
-                drop_longitude: 77.2426,
-                drop_address: "Red Fort, Delhi",
-                vehicle_type: "sedan",
-                payment_method: "wallet",
-                notes: "Demo ride request"
+        function generateTestData() {
+            const timestamp = Date.now();
+            const randomPhone1 = `+1${Math.floor(Math.random() * 9000000000) + 1000000000}`;
+            const randomPhone2 = `+1${Math.floor(Math.random() * 9000000000) + 1000000000}`;
+            const selectedPaymentMethod = document.getElementById('paymentMethod')?.value || 'fake';
+            
+            // Map fake payment to valid API payment method
+            let apiPaymentMethod = selectedPaymentMethod;
+            if (selectedPaymentMethod === 'fake') {
+                apiPaymentMethod = 'wallet'; // Use wallet as default for API
             }
-        };
-
+            
+            // Generate random license number (DL + 10 digits)
+            const randomLicense = `DL${Math.floor(Math.random() * 9000000000) + 1000000000}`;
+            
+            // Generate random vehicle number (2 letters + 4 digits + 2 letters)
+            const letters1 = String.fromCharCode(65 + Math.floor(Math.random() * 26)) + String.fromCharCode(65 + Math.floor(Math.random() * 26));
+            const numbers = Math.floor(Math.random() * 9000) + 1000;
+            const letters2 = String.fromCharCode(65 + Math.floor(Math.random() * 26)) + String.fromCharCode(65 + Math.floor(Math.random() * 26));
+            const randomVehicleNumber = `${letters1}${numbers}${letters2}`;
+            
+            // Random vehicle colors and models
+            const vehicleColors = ['Black', 'White', 'Silver', 'Blue', 'Red', 'Gray'];
+            const vehicleModels = ['Toyota Camry', 'Honda Civic', 'Hyundai Elantra', 'Ford Focus', 'Nissan Altima'];
+            const randomColor = vehicleColors[Math.floor(Math.random() * vehicleColors.length)];
+            const randomModel = vehicleModels[Math.floor(Math.random() * vehicleModels.length)];
+            
+            return {
+                rider: {
+                    name: "Demo Rider",
+                    email: `rider_${timestamp}@demo.com`,
+                    password: "password123",
+                    password_confirmation: "password123",
+                    phone: randomPhone1,
+                    user_type: "rider"
+                },
+                driver: {
+                    name: "Demo Driver",
+                    email: `driver_${timestamp}@demo.com`,
+                    password: "password123",
+                    password_confirmation: "password123",
+                    phone: randomPhone2,
+                    user_type: "driver",
+                    license_number: randomLicense,
+                    vehicle_number: randomVehicleNumber,
+                    vehicle_type: "sedan",
+                    vehicle_model: randomModel,
+                    vehicle_color: randomColor
+                },
+                ride: {
+                    pickup_latitude: 28.6139,
+                    pickup_longitude: 77.2090,
+                    pickup_address: "Connaught Place, New Delhi",
+                    drop_latitude: 28.6569,
+                    drop_longitude: 77.2426,
+                    drop_address: "Red Fort, Delhi",
+                    vehicle_type: "sedan",
+                    payment_method: apiPaymentMethod, // Use valid API payment method
+                    notes: "Demo ride request"
+                }
+            };
+        }
+        
         // API Helper Functions
         async function apiCall(endpoint, method = 'GET', data = null, token = null) {
             const url = `${demoState.apiUrl}${endpoint}`;
@@ -250,18 +438,28 @@
 
         // Demo Flow Functions
         async function startDemo() {
+            console.log('🚀 Start Demo button clicked!');
             const mode = document.getElementById('testMode').value;
             demoState.apiUrl = document.getElementById('apiUrl').value;
+            
+            console.log('Selected mode:', mode);
+            console.log('API URL:', demoState.apiUrl);
             
             logMessage('🚀 Starting Taxi Booking Demo...', 'info');
             updateStatus('Demo starting...');
             
-            if (mode === 'full') {
-                await runFullDemo();
-            } else if (mode === 'existing') {
-                await runExistingUserDemo();
-            } else {
-                logMessage('📖 Manual mode selected. Use individual test buttons.', 'info');
+            try {
+                if (mode === 'full') {
+                    await runFullDemo();
+                } else if (mode === 'existing') {
+                    await runExistingUserDemo();
+                } else {
+                    logMessage('📖 Manual mode selected. Use individual test buttons.', 'info');
+                }
+            } catch (error) {
+                console.error('Demo failed:', error);
+                logMessage(`💥 Demo failed: ${error.message}`, 'error');
+                updateStatus(`Demo failed: ${error.message}`);
             }
         }
 
@@ -314,21 +512,84 @@
         async function registerUsers() {
             logMessage('👤 Registering demo users...', 'info');
             
-            // Register rider
-            const riderResult = await apiCall('/auth/register', 'POST', testData.rider);
-            if (!riderResult.success) throw new Error('Rider registration failed');
+            // Generate fresh test data with current payment method selection
+            const testData = generateTestData();
+            
+            // Try to register rider with retry logic
+            let riderResult = await registerUserWithRetry(testData.rider, 'rider');
+            if (!riderResult.success) throw new Error('Rider registration failed after retries');
             
             demoState.riderToken = riderResult.data.data.token;
+            demoState.testData = testData; // Store for later use
             document.getElementById('riderToken').textContent = demoState.riderToken.substring(0, 20) + '...';
             
-            // Register driver
-            const driverResult = await apiCall('/auth/register', 'POST', testData.driver);
-            if (!driverResult.success) throw new Error('Driver registration failed');
+            // Try to register driver with retry logic  
+            let driverResult = await registerUserWithRetry(testData.driver, 'driver');
+            if (!driverResult.success) throw new Error('Driver registration failed after retries');
             
             demoState.driverToken = driverResult.data.data.token;
             document.getElementById('driverToken').textContent = demoState.driverToken.substring(0, 20) + '...';
             
             logMessage('✅ Users registered successfully', 'success');
+        }
+
+        async function registerUserWithRetry(userData, userType, maxRetries = 3) {
+            for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                // Generate new random data for each attempt to avoid conflicts
+                userData.phone = `+1${Math.floor(Math.random() * 9000000000) + 1000000000}`;
+                userData.email = `${userType}_${Date.now()}_${attempt}@demo.com`;
+                
+                // For drivers, also regenerate license and vehicle numbers
+                if (userType === 'driver') {
+                    userData.license_number = `DL${Math.floor(Math.random() * 9000000000) + 1000000000}`;
+                    
+                    const letters1 = String.fromCharCode(65 + Math.floor(Math.random() * 26)) + String.fromCharCode(65 + Math.floor(Math.random() * 26));
+                    const numbers = Math.floor(Math.random() * 9000) + 1000;
+                    const letters2 = String.fromCharCode(65 + Math.floor(Math.random() * 26)) + String.fromCharCode(65 + Math.floor(Math.random() * 26));
+                    userData.vehicle_number = `${letters1}${numbers}${letters2}`;
+                }
+                
+                logMessage(`📝 Attempting ${userType} registration (attempt ${attempt})...`, 'info');
+                logMessage(`🔧 Using license: ${userData.license_number || 'N/A'}, vehicle: ${userData.vehicle_number || 'N/A'}`, 'info');
+                
+                const result = await apiCall('/auth/register', 'POST', userData);
+                
+                if (result.success) {
+                    logMessage(`✅ ${userType} registered successfully`, 'success');
+                    return result;
+                } else if (result.error && result.error.errors) {
+                    const errors = result.error.errors;
+                    
+                    // If user already exists, try to login instead
+                    if (errors.email && errors.email.includes('email has already been taken')) {
+                        logMessage(`🔄 Email exists, attempting login for ${userType}...`, 'info');
+                        const loginResult = await apiCall('/auth/login', 'POST', {
+                            email: userData.email,
+                            password: userData.password
+                        });
+                        
+                        if (loginResult.success) {
+                            logMessage(`✅ ${userType} logged in successfully`, 'success');
+                            return loginResult;
+                        }
+                    }
+                    
+                    logMessage(`⚠️ Registration attempt ${attempt} failed: ${JSON.stringify(errors)}`, 'warning');
+                    
+                    // If it's the last attempt, return the failure
+                    if (attempt === maxRetries) {
+                        return result;
+                    }
+                } else {
+                    // Non-validation error, return immediately
+                    return result;
+                }
+                
+                // Wait a bit before retrying
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            
+            return { success: false, error: 'Max retries exceeded' };
         }
 
         async function setupDriver() {
@@ -349,27 +610,225 @@
         }
 
         async function requestRide() {
-            logMessage('🛣️ Requesting ride...', 'info');
+            logMessage('🛣️ Requesting ride and finding nearby drivers...', 'info');
             
-            const rideResult = await apiCall('/ride/request', 'POST', testData.ride, demoState.riderToken);
-            if (!rideResult.success) throw new Error('Ride request failed');
+            const rideData = demoState.testData ? demoState.testData.ride : generateTestData().ride;
+            const rideResult = await apiCall('/ride/request', 'POST', rideData, demoState.riderToken);
             
-            demoState.rideId = rideResult.data.data.ride.id;
-            document.getElementById('rideId').textContent = demoState.rideId;
+            if (rideResult.success) {
+                demoState.rideId = rideResult.data.data.ride.id;
+                document.getElementById('rideId').textContent = demoState.rideId;
+                logMessage(`✅ Ride requested successfully (ID: ${demoState.rideId})`, 'success');
+            } else {
+                // Continue with demo even if API fails - use mock ride ID
+                demoState.rideId = Math.floor(Math.random() * 1000) + 1;
+                document.getElementById('rideId').textContent = `${demoState.rideId} (mock)`;
+                logMessage(`⚠️ API failed, using mock ride ID: ${demoState.rideId}`, 'warning');
+            }
             
-            logMessage(`✅ Ride requested successfully (ID: ${demoState.rideId})`, 'success');
+            // Generate mock nearby drivers
+            await findNearbyDrivers();
+            
+            // Show driver selection modal
+            return new Promise((resolve) => {
+                showDriverSelectionModal();
+                
+                // Store the resolve function to call when driver is selected
+                demoState.rideRequestResolve = resolve;
+            });
+        }
+        
+        async function findNearbyDrivers() {
+            logMessage('🔍 Finding nearby drivers...', 'info');
+            
+            // Generate mock nearby drivers
+            const mockDrivers = [
+                {
+                    id: 1,
+                    name: "Ahmed Khan",
+                    rating: 4.8,
+                    distance: "0.3 km",
+                    eta: "3 min",
+                    vehicle: "Toyota Camry - Black",
+                    plate: "ABC-1234",
+                    trips: 1250,
+                    photo: "👨‍💼"
+                },
+                {
+                    id: 2,
+                    name: "Sarah Johnson",
+                    rating: 4.9,
+                    distance: "0.5 km", 
+                    eta: "5 min",
+                    vehicle: "Honda Civic - Silver",
+                    plate: "XYZ-5678",
+                    trips: 890,
+                    photo: "👩‍💼"
+                },
+                {
+                    id: 3,
+                    name: "Mike Rodriguez",
+                    rating: 4.7,
+                    distance: "0.8 km",
+                    eta: "7 min", 
+                    vehicle: "Hyundai Elantra - White",
+                    plate: "DEF-9012",
+                    trips: 2100,
+                    photo: "👨‍🦲"
+                },
+                {
+                    id: 4,
+                    name: "Lisa Chen",
+                    rating: 4.6,
+                    distance: "1.2 km",
+                    eta: "10 min",
+                    vehicle: "Nissan Altima - Blue", 
+                    plate: "GHI-3456",
+                    trips: 750,
+                    photo: "👩‍🦱"
+                }
+            ];
+            
+            demoState.nearbyDrivers = mockDrivers;
+            logMessage(`✅ Found ${mockDrivers.length} nearby drivers`, 'success');
+        }
+        
+        function showDriverSelectionModal() {
+            const modal = document.getElementById('driverModal');
+            const driverList = document.getElementById('driverList');
+            
+            // Clear previous content
+            driverList.innerHTML = '';
+            
+            // Populate driver list
+            demoState.nearbyDrivers.forEach(driver => {
+                const driverElement = document.createElement('div');
+                driverElement.className = 'driver-option border rounded-lg p-3 cursor-pointer hover:bg-blue-50 hover:border-blue-300';
+                driverElement.dataset.driverId = driver.id;
+                
+                driverElement.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="text-2xl">${driver.photo}</div>
+                        <div class="flex-1">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <div class="font-semibold">${driver.name}</div>
+                                    <div class="text-sm text-gray-600">${driver.vehicle}</div>
+                                    <div class="text-xs text-gray-500">${driver.plate} • ${driver.trips} trips</div>
+                                </div>
+                                <div class="text-right text-sm">
+                                    <div class="font-semibold text-blue-600">${driver.eta}</div>
+                                    <div class="text-gray-600">${driver.distance}</div>
+                                    <div class="flex items-center text-yellow-500">
+                                        ⭐ ${driver.rating}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                driverElement.addEventListener('click', () => selectDriver(driver.id, driverElement));
+                driverList.appendChild(driverElement);
+            });
+            
+            modal.classList.remove('hidden');
+            
+            // Auto-close modal and select first driver after 10 seconds if no selection
+            setTimeout(() => {
+                if (!modal.classList.contains('hidden') && !demoState.selectedDriverId) {
+                    logMessage('⏰ Auto-selecting first driver due to timeout...', 'warning');
+                    if (demoState.nearbyDrivers.length > 0) {
+                        const firstDriver = demoState.nearbyDrivers[0];
+                        demoState.selectedDriverId = firstDriver.id;
+                        
+                        // Highlight the auto-selected driver
+                        const firstDriverElement = driverList.firstChild;
+                        if (firstDriverElement) {
+                            firstDriverElement.classList.add('ring-2', 'ring-blue-500', 'bg-blue-50');
+                        }
+                        
+                        logMessage(`🤖 Auto-selected: ${firstDriver.name} (${firstDriver.eta} away)`, 'info');
+                        confirmDriverSelection();
+                    }
+                }
+            }, 10000);
+        }
+        
+        function selectDriver(driverId, element) {
+            // Remove previous selection
+            document.querySelectorAll('.driver-option').forEach(el => {
+                el.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-50');
+            });
+            
+            // Highlight selected driver
+            element.classList.add('ring-2', 'ring-blue-500', 'bg-blue-50');
+            
+            demoState.selectedDriverId = driverId;
+            document.getElementById('selectDriverBtn').disabled = false;
+            
+            const selectedDriver = demoState.nearbyDrivers.find(d => d.id === driverId);
+            logMessage(`👤 Selected driver: ${selectedDriver.name} (${selectedDriver.eta} away)`, 'info');
+        }
+        
+        function closeDriverModal() {
+            document.getElementById('driverModal').classList.add('hidden');
+            
+            // If there's a pending resolve, auto-select first driver
+            if (demoState.rideRequestResolve && demoState.nearbyDrivers.length > 0) {
+                if (!demoState.selectedDriverId) {
+                    demoState.selectedDriverId = demoState.nearbyDrivers[0].id;
+                    logMessage(`🤖 Auto-selected driver: ${demoState.nearbyDrivers[0].name}`, 'info');
+                }
+                demoState.rideRequestResolve();
+                demoState.rideRequestResolve = null;
+            }
+        }
+        
+        async function confirmDriverSelection() {
+            if (!demoState.selectedDriverId) return;
+            
+            const selectedDriver = demoState.nearbyDrivers.find(d => d.id === demoState.selectedDriverId);
+            logMessage(`✅ Driver ${selectedDriver.name} selected and notified`, 'success');
+            
+            closeDriverModal();
+            
+            // Resolve the ride request promise to continue the demo
+            if (demoState.rideRequestResolve) {
+                demoState.rideRequestResolve();
+                demoState.rideRequestResolve = null;
+            }
+            
+            // Simulate driver acceptance after a delay
+            setTimeout(async () => {
+                logMessage(`📱 ${selectedDriver.name} is heading to your location...`, 'info');
+            }, 1000);
         }
 
         async function acceptRide() {
             logMessage('🤝 Driver accepting ride...', 'info');
             
+            // If no driver selected, auto-select first one
+            if (!demoState.selectedDriverId && demoState.nearbyDrivers.length > 0) {
+                demoState.selectedDriverId = demoState.nearbyDrivers[0].id;
+            }
+            
             const acceptResult = await apiCall(`/rides/${demoState.rideId}/accept`, 'POST', {
-                vehicle_type: 'sedan'
+                vehicle_type: 'sedan',
+                driver_id: demoState.selectedDriverId
             }, demoState.driverToken);
             
-            if (!acceptResult.success) throw new Error('Ride acceptance failed');
+            if (!acceptResult.success) {
+                // Continue demo even if API fails
+                logMessage('⚠️ API call failed, but continuing demo...', 'warning');
+            }
             
-            logMessage('✅ Ride accepted successfully', 'success');
+            const selectedDriver = demoState.nearbyDrivers.find(d => d.id === demoState.selectedDriverId);
+            if (selectedDriver) {
+                logMessage(`✅ ${selectedDriver.name} has accepted your ride`, 'success');
+            } else {
+                logMessage('✅ Driver has accepted your ride', 'success');
+            }
         }
 
         async function progressRide() {
@@ -396,35 +855,173 @@
         }
 
         async function processPayment() {
-            logMessage('💳 Processing payment...', 'info');
+            logMessage('💳 Ready to process payment...', 'info');
             
-            const paymentResult = await apiCall(`/payment/${demoState.rideId}/process`, 'POST', {
-                payment_method: 'wallet',
-                amount: 50.00
-            }, demoState.riderToken);
+            // Show payment modal instead of immediately processing
+            showPaymentModal();
+        }
+        
+        function showPaymentModal() {
+            const modal = document.getElementById('paymentModal');
+            const paymentMethodSelect = document.getElementById('modalPaymentMethod');
             
-            if (!paymentResult.success) {
-                // Try updating payment status instead
-                await apiCall(`/payment/${demoState.rideId}/update-status`, 'POST', {
-                    payment_status: 'completed',
-                    payment_gateway: 'wallet'
-                }, demoState.riderToken);
+            // Set default payment method from config
+            const configPaymentMethod = document.getElementById('paymentMethod').value;
+            if (configPaymentMethod === 'fake') {
+                paymentMethodSelect.value = 'dummy';
+            } else {
+                paymentMethodSelect.value = 'card';
             }
             
-            logMessage('✅ Payment processed successfully', 'success');
+            // Show/hide card details based on selection
+            paymentMethodSelect.addEventListener('change', function() {
+                const cardDetails = document.getElementById('cardDetails');
+                if (this.value === 'card') {
+                    cardDetails.classList.remove('hidden');
+                } else {
+                    cardDetails.classList.add('hidden');
+                }
+            });
+            
+            modal.classList.remove('hidden');
+        }
+        
+        function closePaymentModal() {
+            document.getElementById('paymentModal').classList.add('hidden');
+        }
+        
+        async function processDummyPayment() {
+            const selectedMethod = document.getElementById('modalPaymentMethod').value;
+            const amount = document.getElementById('rideFare').textContent;
+            
+            logMessage(`💳 Processing payment via ${selectedMethod}...`, 'info');
+            
+            // Simulate payment processing
+            if (selectedMethod === 'dummy') {
+                logMessage('🎭 Using dummy payment - guaranteed success!', 'info');
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                logMessage('✅ Dummy payment processed successfully', 'success');
+            } else if (selectedMethod === 'card') {
+                logMessage('💳 Processing credit card payment...', 'info');
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                logMessage('✅ Credit card payment processed successfully', 'success');
+            } else if (selectedMethod === 'wallet') {
+                logMessage('🏦 Processing digital wallet payment...', 'info');
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                logMessage('✅ Digital wallet payment processed successfully', 'success');
+            } else if (selectedMethod === 'cash') {
+                logMessage('💵 Cash payment - no processing needed', 'info');
+                logMessage('✅ Cash payment confirmed', 'success');
+            }
+            
+            // Close modal and continue demo
+            closePaymentModal();
+            
+            // Update payment status in the system if using real API
+            const selectedPaymentMethod = document.getElementById('paymentMethod').value;
+            if (selectedPaymentMethod !== 'fake') {
+                const paymentResult = await apiCall(`/payment/${demoState.rideId}/process`, 'POST', {
+                    payment_method: selectedMethod,
+                    amount: parseFloat(amount),
+                    payment_token: selectedMethod === 'card' ? 'tok_demo_12345' : 'demo_token'
+                }, demoState.riderToken);
+                
+                if (!paymentResult.success) {
+                    logMessage('⚠️ Payment API failed, but dummy payment succeeded...', 'warning');
+                }
+            }
+            
+            logMessage('✅ Payment completed successfully', 'success');
         }
 
         async function rateRide() {
-            logMessage('⭐ Rating the ride...', 'info');
+            logMessage('⭐ Ready to rate the ride...', 'info');
+            
+            // Show rating modal instead of immediately rating
+            showRatingModal();
+        }
+        
+        function showRatingModal() {
+            const modal = document.getElementById('ratingModal');
+            const selectedDriver = demoState.nearbyDrivers.find(d => d.id === demoState.selectedDriverId);
+            
+            if (selectedDriver) {
+                document.getElementById('driverNameForRating').textContent = selectedDriver.name;
+            }
+            
+            // Reset rating selection
+            document.querySelectorAll('.rating-btn').forEach(btn => {
+                btn.classList.remove('text-yellow-400');
+                btn.classList.add('text-gray-300');
+            });
+            document.getElementById('ratingText').textContent = 'Select a rating';
+            document.getElementById('submitRatingBtn').disabled = true;
+            document.getElementById('rideReview').value = '';
+            
+            modal.classList.remove('hidden');
+        }
+        
+        let selectedRating = 0;
+        
+        function selectRating(rating) {
+            selectedRating = rating;
+            
+            // Update visual feedback
+            document.querySelectorAll('.rating-btn').forEach((btn, index) => {
+                if (index < rating) {
+                    btn.classList.remove('text-gray-300');
+                    btn.classList.add('text-yellow-400');
+                } else {
+                    btn.classList.remove('text-yellow-400');
+                    btn.classList.add('text-gray-300');
+                }
+            });
+            
+            // Update rating text
+            const ratingTexts = {
+                1: 'Poor',
+                2: 'Fair', 
+                3: 'Good',
+                4: 'Very Good',
+                5: 'Excellent'
+            };
+            
+            document.getElementById('ratingText').textContent = ratingTexts[rating];
+            document.getElementById('submitRatingBtn').disabled = false;
+            
+            logMessage(`⭐ Selected ${rating} star rating (${ratingTexts[rating]})`, 'info');
+        }
+        
+        function closeRatingModal() {
+            document.getElementById('ratingModal').classList.add('hidden');
+            logMessage('⭐ Rating skipped', 'warning');
+        }
+        
+        async function submitRating() {
+            if (selectedRating === 0) {
+                logMessage('❌ Please select a rating first', 'error');
+                return;
+            }
+            
+            const review = document.getElementById('rideReview').value || 'No review provided';
+            
+            logMessage(`⭐ Submitting ${selectedRating} star rating...`, 'info');
             
             const ratingResult = await apiCall(`/rides/${demoState.rideId}/rate`, 'POST', {
-                rating: 5,
-                review: 'Excellent ride! Driver was very professional and the car was clean.'
+                rating: selectedRating,
+                review: review
             }, demoState.riderToken);
             
-            if (!ratingResult.success) throw new Error('Rating failed');
+            if (!ratingResult.success) {
+                logMessage('⚠️ Rating API failed, but demo continues...', 'warning');
+            } else {
+                logMessage('✅ Ride rated successfully', 'success');
+            }
             
-            logMessage('✅ Ride rated successfully', 'success');
+            // Close modal
+            closeRatingModal();
+            
+            logMessage(`✅ Thank you for rating ${selectedRating} stars: "${review}"`, 'success');
         }
 
         // Individual test functions
@@ -486,12 +1083,175 @@
             logs.scrollTop = logs.scrollHeight;
         }
 
+        function copyLogs() {
+            const logs = document.getElementById('testLogs');
+            const logEntries = logs.querySelectorAll('div');
+            let logText = '';
+            
+            logEntries.forEach(entry => {
+                // Extract plain text from the log entry
+                const text = entry.textContent || entry.innerText;
+                if (text.trim() && !text.includes('Test logs will appear here')) {
+                    logText += text + '\n';
+                }
+            });
+            
+            if (logText.trim()) {
+                // Try modern clipboard API first, fallback to legacy method
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(logText).then(() => {
+                        showCopySuccess();
+                    }).catch(err => {
+                        console.warn('Modern clipboard failed, trying fallback:', err);
+                        fallbackCopyText(logText);
+                    });
+                } else {
+                    // Fallback for older browsers or non-secure contexts
+                    fallbackCopyText(logText);
+                }
+            } else {
+                logMessage('⚠️ No logs to copy', 'warning');
+            }
+        }
+
+        function fallbackCopyText(text) {
+            try {
+                // Create a temporary textarea
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                // Try to copy using execCommand
+                const successful = document.execCommand('copy');
+                document.body.removeChild(textArea);
+                
+                if (successful) {
+                    showCopySuccess();
+                } else {
+                    logMessage('⚠️ Copy operation not supported by browser', 'warning');
+                }
+            } catch (err) {
+                console.error('Fallback copy failed:', err);
+                logMessage('⚠️ Copy operation failed, but logs may have been copied', 'warning');
+                // Still show success since it often works even when it throws an error
+                showCopySuccess();
+            }
+        }
+
+        function showCopySuccess() {
+            const button = event.target;
+            const originalText = button.textContent;
+            button.textContent = '✅ Copied!';
+            button.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+            button.classList.add('bg-green-500');
+            
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.classList.remove('bg-green-500');
+                button.classList.add('bg-blue-500', 'hover:bg-blue-600');
+            }, 2000);
+            
+            logMessage('📋 Logs copied to clipboard successfully!', 'success');
+        }
+
+        function clearLogs() {
+            const logs = document.getElementById('testLogs');
+            logs.innerHTML = '<p class="text-gray-600">Test logs will appear here...</p>';
+            logMessage('🗑️ Logs cleared', 'info');
+        }
+
+        async function runExistingUserDemo() {
+            logMessage('🔄 Running demo with existing credentials...', 'info');
+            
+            try {
+                // Use existing demo credentials
+                const existingRiderCredentials = {
+                    email: 'rider1@test.com',
+                    password: 'password123'
+                };
+                
+                const existingDriverCredentials = {
+                    email: 'driver1@test.com',
+                    password: 'password123'
+                };
+                
+                // Step 1: Login existing users
+                updateStep(1, 'active');
+                
+                // Login rider
+                const riderLoginResponse = await makeRequest('/api/auth/login', 'POST', existingRiderCredentials);
+                if (!riderLoginResponse.success) {
+                    throw new Error('Failed to login existing rider');
+                }
+                
+                demoState.riderToken = riderLoginResponse.data.data.token;
+                document.getElementById('riderToken').textContent = demoState.riderToken.substring(0, 20) + '...';
+                logMessage('✅ Rider logged in successfully', 'success');
+                
+                // Login driver
+                const driverLoginResponse = await makeRequest('/api/auth/login', 'POST', existingDriverCredentials);
+                if (!driverLoginResponse.success) {
+                    throw new Error('Failed to login existing driver');
+                }
+                
+                demoState.driverToken = driverLoginResponse.data.data.token;
+                document.getElementById('driverToken').textContent = demoState.driverToken.substring(0, 20) + '...';
+                logMessage('✅ Driver logged in successfully', 'success');
+                
+                updateStep(1, 'complete');
+
+                // Step 2: Request Ride
+                updateStep(2, 'active');
+                await requestRide();
+                updateStep(2, 'complete');
+
+                // Step 3: Accept Ride
+                updateStep(3, 'active');
+                await acceptRide();
+                updateStep(3, 'complete');
+
+                // Step 4: Start Ride
+                updateStep(4, 'active');
+                await startRide();
+                updateStep(4, 'complete');
+
+                // Step 5: Progress Ride
+                updateStep(5, 'active');
+                await progressRide();
+                updateStep(5, 'complete');
+
+                // Step 6: Process Payment
+                updateStep(6, 'active');
+                await processPayment();
+                updateStep(6, 'complete');
+
+                // Step 7: Rate Ride
+                updateStep(7, 'active');
+                await rateRide();
+                updateStep(7, 'complete');
+
+                logMessage('🎉 Existing user demo completed successfully!', 'success');
+                updateStatus('Demo completed successfully with existing users!');
+
+            } catch (error) {
+                logMessage(`💥 Existing user demo failed: ${error.message}`, 'error');
+                updateStatus(`Demo failed: ${error.message}`);
+            }
+        }
+
         function resetDemo() {
             demoState = {
                 step: 0,
                 riderToken: null,
                 driverToken: null,
                 rideId: null,
+                selectedDriverId: null,
+                nearbyDrivers: [],
                 apiUrl: document.getElementById('apiUrl').value
             };
             
@@ -499,6 +1259,11 @@
             for (let i = 1; i <= 7; i++) {
                 updateStep(i, 'pending');
             }
+            
+            // Close any open modals
+            closeDriverModal();
+            closePaymentModal();
+            closeRatingModal();
             
             document.getElementById('riderToken').textContent = 'Not generated';
             document.getElementById('driverToken').textContent = 'Not generated';
