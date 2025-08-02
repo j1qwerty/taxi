@@ -176,35 +176,49 @@ class DriverController extends Controller
         ]);
     }
 
-    public function acceptRide(Request $request)
+    public function acceptRide(Request $request, $ride = null)
     {
+        // Get ride ID from route parameter or request body
+        $rideId = $ride ?? $request->input('ride_id');
+        
+        if (!$rideId) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Ride ID is required'
+            ], 400);
+        }
+
         $request->validate([
-            'ride_id' => 'required|exists:rides,id'
+            'vehicle_type' => 'sometimes|string|in:hatchback,sedan,suv,luxury'
         ]);
 
         $user = $request->user();
         $driver = $user->driver;
-        $ride = Ride::find($request->ride_id);
+        $rideModel = Ride::find($rideId);
 
-        if ($ride->status !== 'pending') {
+        if (!$rideModel) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Ride is not available'
+                'message' => 'Ride not found'
+            ], 404);
+        }
+
+        if (!in_array($rideModel->status, ['searching', 'pending'])) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Ride is not available for acceptance. Current status: ' . $rideModel->status
             ], 400);
         }
 
-        // Check if driver vehicle type matches requested vehicle type
-        if ($driver->vehicle_type !== $ride->vehicle_type) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Vehicle type mismatch. Required: ' . $ride->vehicle_type . ', Your vehicle: ' . $driver->vehicle_type
-            ], 400);
-        }
+        // Use provided vehicle type or driver's default vehicle type
+        $vehicleType = $request->input('vehicle_type', $driver->vehicle_type ?? 'sedan');
 
-        $ride->update([
+        $rideModel->update([
             'driver_id' => $driver->id,
             'status' => 'accepted',
-            'accepted_at' => now()
+            'vehicle_type' => $vehicleType,
+            'accepted_at' => now(),
+            'otp' => str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT)
         ]);
 
         $driver->update(['is_available' => false]);
@@ -212,7 +226,15 @@ class DriverController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Ride accepted successfully',
-            'data' => $ride
+            'data' => [
+                'ride_id' => $rideModel->id,
+                'status' => $rideModel->status,
+                'pickup_address' => $rideModel->pickup_address,
+                'drop_address' => $rideModel->drop_address,
+                'estimated_fare' => $rideModel->estimated_fare,
+                'otp' => $rideModel->otp,
+                'accepted_at' => $rideModel->accepted_at
+            ]
         ]);
     }
 
@@ -253,7 +275,16 @@ class DriverController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Ride status updated successfully',
-            'data' => $ride
+            'data' => [
+                'ride_id' => $ride->id,
+                'status' => $ride->status,
+                'pickup_address' => $ride->pickup_address,
+                'drop_address' => $ride->drop_address,
+                'estimated_fare' => $ride->estimated_fare,
+                'started_at' => $ride->started_at,
+                'completed_at' => $ride->completed_at,
+                'cancelled_at' => $ride->cancelled_at
+            ]
         ]);
     }
 }

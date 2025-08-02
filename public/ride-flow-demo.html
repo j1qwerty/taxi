@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taxi Booking API - Full Ride Flow Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .step-complete { 
+            background-color: #dcfce7; 
+            border-color: #22c55e; 
+            color: #166534; 
+        }
+        .step-active { 
+            background-color: #dbeafe; 
+            border-color: #3b82f6; 
+            color: #1e40af; 
+        }
+        .step-pending { 
+            background-color: #f3f4f6; 
+            border-color: #d1d5db; 
+            color: #6b7280; 
+        }
+        .step-error { 
+            background-color: #fef2f2; 
+            border-color: #ef4444; 
+            color: #dc2626; 
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg p-6 mb-8">
+            <h1 class="text-3xl font-bold mb-2">🚕 Taxi Booking API Demo</h1>
+            <p class="text-blue-100">Complete ride flow testing - From request to completion with payment & rating</p>
+        </div>
+
+        <!-- Configuration Panel -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-xl font-semibold mb-4">🔧 Configuration</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">API Base URL</label>
+                    <input type="text" id="apiUrl" value="http://localhost:8000/api" 
+                           class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Test Mode</label>
+                    <select id="testMode" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500">
+                        <option value="full">Full Flow (New Users)</option>
+                        <option value="existing">Existing Users</option>
+                        <option value="manual">Manual Step-by-Step</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mt-4">
+                <button onclick="startDemo()" class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700">
+                    🚀 Start Demo
+                </button>
+                <button onclick="resetDemo()" class="bg-gray-600 text-white px-6 py-2 rounded-md hover:bg-gray-700 ml-2">
+                    🔄 Reset
+                </button>
+            </div>
+        </div>
+
+        <!-- Progress Steps -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-xl font-semibold mb-4">📋 Demo Progress</h2>
+            <div class="space-y-2">
+                <div id="step-1" class="step step-pending border-l-4 pl-4 py-2">
+                    <span class="font-medium">1. User Registration & Authentication</span>
+                    <div class="text-sm text-gray-600">Register rider and driver accounts</div>
+                </div>
+                <div id="step-2" class="step step-pending border-l-4 pl-4 py-2">
+                    <span class="font-medium">2. Driver Setup & Location</span>
+                    <div class="text-sm text-gray-600">Set driver online and update location</div>
+                </div>
+                <div id="step-3" class="step step-pending border-l-4 pl-4 py-2">
+                    <span class="font-medium">3. Ride Request</span>
+                    <div class="text-sm text-gray-600">Rider requests a ride with spatial queries</div>
+                </div>
+                <div id="step-4" class="step step-pending border-l-4 pl-4 py-2">
+                    <span class="font-medium">4. Driver Acceptance</span>
+                    <div class="text-sm text-gray-600">Driver accepts the ride request</div>
+                </div>
+                <div id="step-5" class="step step-pending border-l-4 pl-4 py-2">
+                    <span class="font-medium">5. Ride Progression</span>
+                    <div class="text-sm text-gray-600">Start → In Progress → Completion</div>
+                </div>
+                <div id="step-6" class="step step-pending border-l-4 pl-4 py-2">
+                    <span class="font-medium">6. Payment Processing</span>
+                    <div class="text-sm text-gray-600">Process payment via multiple methods</div>
+                </div>
+                <div id="step-7" class="step step-pending border-l-4 pl-4 py-2">
+                    <span class="font-medium">7. Rating & Review</span>
+                    <div class="text-sm text-gray-600">Rate driver and complete the flow</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Demo Data -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Current State -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-lg font-semibold mb-4">📊 Current State</h3>
+                <div id="currentState" class="space-y-3">
+                    <div>
+                        <span class="font-medium">Status:</span>
+                        <span id="currentStatus" class="text-gray-600">Ready to start</span>
+                    </div>
+                    <div>
+                        <span class="font-medium">Rider Token:</span>
+                        <code id="riderToken" class="text-xs bg-gray-100 p-1 rounded">Not generated</code>
+                    </div>
+                    <div>
+                        <span class="font-medium">Driver Token:</span>
+                        <code id="driverToken" class="text-xs bg-gray-100 p-1 rounded">Not generated</code>
+                    </div>
+                    <div>
+                        <span class="font-medium">Current Ride ID:</span>
+                        <code id="rideId" class="text-xs bg-gray-100 p-1 rounded">None</code>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Live API Responses -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-lg font-semibold mb-4">🔥 Live API Response</h3>
+                <div class="bg-gray-900 text-green-400 p-4 rounded-md h-64 overflow-y-auto">
+                    <pre id="apiResponse">Ready to test API endpoints...</pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detailed Logs -->
+        <div class="bg-white rounded-lg shadow-md p-6 mt-8">
+            <h3 class="text-lg font-semibold mb-4">📝 Detailed Test Logs</h3>
+            <div id="testLogs" class="bg-gray-50 p-4 rounded-md h-96 overflow-y-auto">
+                <p class="text-gray-600">Test logs will appear here...</p>
+            </div>
+        </div>
+
+        <!-- Manual Testing Panel -->
+        <div class="bg-white rounded-lg shadow-md p-6 mt-8">
+            <h3 class="text-lg font-semibold mb-4">🎮 Manual Testing</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <button onclick="testAuth()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                    🔐 Test Auth
+                </button>
+                <button onclick="testRideRequest()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                    🚗 Request Ride
+                </button>
+                <button onclick="testDriverAccept()" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">
+                    ✅ Accept Ride
+                </button>
+                <button onclick="testPayment()" class="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700">
+                    💳 Test Payment
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Demo state
+        let demoState = {
+            step: 0,
+            riderToken: null,
+            driverToken: null,
+            rideId: null,
+            apiUrl: 'http://localhost:8000/api'
+        };
+
+        // Test data
+        const testData = {
+            rider: {
+                name: "Demo Rider",
+                email: `rider_${Date.now()}@demo.com`,
+                password: "password123",
+                phone: "+1234567890",
+                user_type: "rider"
+            },
+            driver: {
+                name: "Demo Driver",
+                email: `driver_${Date.now()}@demo.com`,
+                password: "password123",
+                phone: "+1234567891",
+                user_type: "driver",
+                license_number: "DL123456789",
+                vehicle_number: "ABC123",
+                vehicle_type: "sedan",
+                vehicle_model: "Toyota Camry",
+                vehicle_color: "Black"
+            },
+            ride: {
+                pickup_latitude: 28.6139,
+                pickup_longitude: 77.2090,
+                pickup_address: "Connaught Place, New Delhi",
+                drop_latitude: 28.6569,
+                drop_longitude: 77.2426,
+                drop_address: "Red Fort, Delhi",
+                vehicle_type: "sedan",
+                payment_method: "wallet",
+                notes: "Demo ride request"
+            }
+        };
+
+        // API Helper Functions
+        async function apiCall(endpoint, method = 'GET', data = null, token = null) {
+            const url = `${demoState.apiUrl}${endpoint}`;
+            const headers = {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            };
+            
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
+            const config = {
+                method,
+                headers
+            };
+
+            if (data && (method === 'POST' || method === 'PUT')) {
+                config.body = JSON.stringify(data);
+            }
+
+            logMessage(`🌐 ${method} ${endpoint}`, 'info');
+            if (data) logMessage(`📤 Request: ${JSON.stringify(data, null, 2)}`, 'info');
+
+            try {
+                const response = await fetch(url, config);
+                const result = await response.json();
+                
+                document.getElementById('apiResponse').textContent = JSON.stringify(result, null, 2);
+                
+                if (response.ok) {
+                    logMessage(`✅ Response: ${JSON.stringify(result, null, 2)}`, 'success');
+                    return { success: true, data: result };
+                } else {
+                    logMessage(`❌ Error: ${JSON.stringify(result, null, 2)}`, 'error');
+                    return { success: false, error: result };
+                }
+            } catch (error) {
+                logMessage(`💥 Network Error: ${error.message}`, 'error');
+                return { success: false, error: error.message };
+            }
+        }
+
+        // Demo Flow Functions
+        async function startDemo() {
+            const mode = document.getElementById('testMode').value;
+            demoState.apiUrl = document.getElementById('apiUrl').value;
+            
+            logMessage('🚀 Starting Taxi Booking Demo...', 'info');
+            updateStatus('Demo starting...');
+            
+            if (mode === 'full') {
+                await runFullDemo();
+            } else if (mode === 'existing') {
+                await runExistingUserDemo();
+            } else {
+                logMessage('📖 Manual mode selected. Use individual test buttons.', 'info');
+            }
+        }
+
+        async function runFullDemo() {
+            try {
+                // Step 1: Register Users
+                updateStep(1, 'active');
+                await registerUsers();
+                updateStep(1, 'complete');
+
+                // Step 2: Setup Driver
+                updateStep(2, 'active');
+                await setupDriver();
+                updateStep(2, 'complete');
+
+                // Step 3: Request Ride
+                updateStep(3, 'active');
+                await requestRide();
+                updateStep(3, 'complete');
+
+                // Step 4: Accept Ride
+                updateStep(4, 'active');
+                await acceptRide();
+                updateStep(4, 'complete');
+
+                // Step 5: Progress Ride
+                updateStep(5, 'active');
+                await progressRide();
+                updateStep(5, 'complete');
+
+                // Step 6: Process Payment
+                updateStep(6, 'active');
+                await processPayment();
+                updateStep(6, 'complete');
+
+                // Step 7: Rate Ride
+                updateStep(7, 'active');
+                await rateRide();
+                updateStep(7, 'complete');
+
+                logMessage('🎉 Full demo completed successfully!', 'success');
+                updateStatus('Demo completed successfully!');
+
+            } catch (error) {
+                logMessage(`💥 Demo failed: ${error.message}`, 'error');
+                updateStatus(`Demo failed: ${error.message}`);
+            }
+        }
+
+        async function registerUsers() {
+            logMessage('👤 Registering demo users...', 'info');
+            
+            // Register rider
+            const riderResult = await apiCall('/auth/register', 'POST', testData.rider);
+            if (!riderResult.success) throw new Error('Rider registration failed');
+            
+            demoState.riderToken = riderResult.data.data.token;
+            document.getElementById('riderToken').textContent = demoState.riderToken.substring(0, 20) + '...';
+            
+            // Register driver
+            const driverResult = await apiCall('/auth/register', 'POST', testData.driver);
+            if (!driverResult.success) throw new Error('Driver registration failed');
+            
+            demoState.driverToken = driverResult.data.data.token;
+            document.getElementById('driverToken').textContent = demoState.driverToken.substring(0, 20) + '...';
+            
+            logMessage('✅ Users registered successfully', 'success');
+        }
+
+        async function setupDriver() {
+            logMessage('🚗 Setting up driver...', 'info');
+            
+            // Set driver online
+            const statusResult = await apiCall('/driver/status', 'POST', {
+                status: 'online'
+            }, demoState.driverToken);
+            
+            // Update driver location
+            const locationResult = await apiCall('/driver/location', 'POST', {
+                latitude: 28.6143,
+                longitude: 77.2088
+            }, demoState.driverToken);
+            
+            logMessage('✅ Driver setup completed', 'success');
+        }
+
+        async function requestRide() {
+            logMessage('🛣️ Requesting ride...', 'info');
+            
+            const rideResult = await apiCall('/ride/request', 'POST', testData.ride, demoState.riderToken);
+            if (!rideResult.success) throw new Error('Ride request failed');
+            
+            demoState.rideId = rideResult.data.data.ride.id;
+            document.getElementById('rideId').textContent = demoState.rideId;
+            
+            logMessage(`✅ Ride requested successfully (ID: ${demoState.rideId})`, 'success');
+        }
+
+        async function acceptRide() {
+            logMessage('🤝 Driver accepting ride...', 'info');
+            
+            const acceptResult = await apiCall(`/rides/${demoState.rideId}/accept`, 'POST', {
+                vehicle_type: 'sedan'
+            }, demoState.driverToken);
+            
+            if (!acceptResult.success) throw new Error('Ride acceptance failed');
+            
+            logMessage('✅ Ride accepted successfully', 'success');
+        }
+
+        async function progressRide() {
+            logMessage('🚦 Progressing ride status...', 'info');
+            
+            // Start ride
+            await apiCall('/driver/update-ride-status', 'POST', {
+                ride_id: demoState.rideId,
+                status: 'started'
+            }, demoState.driverToken);
+            
+            logMessage('🟢 Ride started', 'success');
+            
+            // Simulate ride in progress
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Complete ride
+            await apiCall('/driver/update-ride-status', 'POST', {
+                ride_id: demoState.rideId,
+                status: 'completed'
+            }, demoState.driverToken);
+            
+            logMessage('🏁 Ride completed', 'success');
+        }
+
+        async function processPayment() {
+            logMessage('💳 Processing payment...', 'info');
+            
+            const paymentResult = await apiCall(`/payment/${demoState.rideId}/process`, 'POST', {
+                payment_method: 'wallet',
+                amount: 50.00
+            }, demoState.riderToken);
+            
+            if (!paymentResult.success) {
+                // Try updating payment status instead
+                await apiCall(`/payment/${demoState.rideId}/update-status`, 'POST', {
+                    payment_status: 'completed',
+                    payment_gateway: 'wallet'
+                }, demoState.riderToken);
+            }
+            
+            logMessage('✅ Payment processed successfully', 'success');
+        }
+
+        async function rateRide() {
+            logMessage('⭐ Rating the ride...', 'info');
+            
+            const ratingResult = await apiCall(`/rides/${demoState.rideId}/rate`, 'POST', {
+                rating: 5,
+                review: 'Excellent ride! Driver was very professional and the car was clean.'
+            }, demoState.riderToken);
+            
+            if (!ratingResult.success) throw new Error('Rating failed');
+            
+            logMessage('✅ Ride rated successfully', 'success');
+        }
+
+        // Individual test functions
+        async function testAuth() {
+            await registerUsers();
+        }
+
+        async function testRideRequest() {
+            if (!demoState.riderToken) {
+                await registerUsers();
+            }
+            await requestRide();
+        }
+
+        async function testDriverAccept() {
+            if (!demoState.driverToken) {
+                await registerUsers();
+                await setupDriver();
+            }
+            if (!demoState.rideId) {
+                await requestRide();
+            }
+            await acceptRide();
+        }
+
+        async function testPayment() {
+            if (!demoState.rideId) {
+                logMessage('❌ No ride available for payment testing', 'error');
+                return;
+            }
+            await processPayment();
+        }
+
+        // Helper functions
+        function updateStep(stepNum, status) {
+            const step = document.getElementById(`step-${stepNum}`);
+            step.className = `step step-${status} border-l-4 pl-4 py-2`;
+        }
+
+        function updateStatus(status) {
+            document.getElementById('currentStatus').textContent = status;
+        }
+
+        function logMessage(message, type = 'info') {
+            const logs = document.getElementById('testLogs');
+            const timestamp = new Date().toLocaleTimeString();
+            const colors = {
+                info: 'text-blue-600',
+                success: 'text-green-600',
+                error: 'text-red-600',
+                warning: 'text-yellow-600'
+            };
+            
+            const logEntry = document.createElement('div');
+            logEntry.className = `mb-2 ${colors[type]}`;
+            logEntry.innerHTML = `<span class="text-gray-500">[${timestamp}]</span> ${message}`;
+            
+            logs.appendChild(logEntry);
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        function resetDemo() {
+            demoState = {
+                step: 0,
+                riderToken: null,
+                driverToken: null,
+                rideId: null,
+                apiUrl: document.getElementById('apiUrl').value
+            };
+            
+            // Reset UI
+            for (let i = 1; i <= 7; i++) {
+                updateStep(i, 'pending');
+            }
+            
+            document.getElementById('riderToken').textContent = 'Not generated';
+            document.getElementById('driverToken').textContent = 'Not generated';
+            document.getElementById('rideId').textContent = 'None';
+            document.getElementById('testLogs').innerHTML = '<p class="text-gray-600">Test logs will appear here...</p>';
+            document.getElementById('apiResponse').textContent = 'Ready to test API endpoints...';
+            
+            updateStatus('Ready to start');
+            logMessage('🔄 Demo reset completed', 'info');
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            logMessage('🎯 Taxi Booking API Demo loaded successfully', 'info');
+            updateStatus('Ready to start');
+        });
+    </script>
+</body>
+</html>

@@ -30,7 +30,14 @@ class Ride extends Model
         'otp_verified',
         'payment_method',
         'payment_status',
+        'payment_gateway',
+        'gateway_response',
+        'payment_updated_at',
         'transaction_id',
+        'refund_amount',
+        'refund_reason',
+        'refunded_at',
+        'refund_transaction_id',
         'driver_arrival_time',
         'ride_start_time',
         'ride_end_time',
@@ -40,7 +47,17 @@ class Ride extends Model
         'rider_rating',
         'rider_review',
         'driver_rating',
-        'driver_review'
+        'driver_review',
+        'vehicle_type',
+        'estimated_duration',
+        'accepted_at',
+        'started_at',
+        'completed_at',
+        'cancelled_at',
+        'notes',
+        'distance_fare',
+        'time_fare',
+        'night_charges'
     ];
 
     protected $casts = [

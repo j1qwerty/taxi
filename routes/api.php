@@ -6,10 +6,49 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\RiderController;
 use App\Http\Controllers\Api\DriverController;
 use App\Http\Controllers\Api\RideController;
+use App\Http\Controllers\Api\SimpleRideController;
+use App\Http\Controllers\Api\PaymentController;
 
 // Public routes
 Route::post('/auth/register', [AuthController::class, 'register']);
 Route::post('/auth/login', [AuthController::class, 'login']);
+
+// Simple auth test
+Route::middleware('auth:sanctum')->get('/auth-test', function (Request $request) {
+    return response()->json([
+        'message' => 'Authentication working!',
+        'user' => $request->user()->only(['id', 'name', 'email']),
+        'timestamp' => now()
+    ]);
+});
+
+// Simple ride test without service
+Route::middleware('auth:sanctum')->post('/ride-test', function (Request $request) {
+    return response()->json([
+        'message' => 'Ride test endpoint working!',
+        'user' => $request->user()->only(['id', 'name', 'email']),
+        'data' => $request->all(),
+        'timestamp' => now()
+    ]);
+});
+
+// Test RideService injection
+Route::middleware('auth:sanctum')->post('/ride-service-test', function (Request $request) {
+    try {
+        $rideService = app(\App\Services\RideService::class);
+        return response()->json([
+            'message' => 'RideService injection working!',
+            'service_class' => get_class($rideService),
+            'timestamp' => now()
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'message' => 'RideService injection failed!',
+            'error' => $e->getMessage(),
+            'timestamp' => now()
+        ], 500);
+    }
+});
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
@@ -44,15 +83,30 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{ride}/cancel', [RideController::class, 'cancelRide']);
         Route::post('/{ride}/rate', [RideController::class, 'rateRide']);
         Route::get('/history', [RideController::class, 'getRideHistory']);
+        Route::post('/{ride}/accept', [DriverController::class, 'acceptRide']);
     });
     
-    // Alternative ride routes for compatibility
+    // Payment routes
+    Route::prefix('payment')->group(function () {
+        Route::post('/{ride}/process', [PaymentController::class, 'processPayment']);
+        Route::post('/{ride}/update-status', [PaymentController::class, 'updatePaymentStatus']);
+        Route::post('/{ride}/refund', [PaymentController::class, 'refundPayment']);
+        Route::get('/history', [PaymentController::class, 'getPaymentHistory']);
+    });
+    
+    // Alternative ride routes for compatibility  
     Route::prefix('rides')->group(function () {
         Route::post('/request', [RideController::class, 'requestRide']);
         Route::get('/{ride}/status', [RideController::class, 'getRideStatus']);
         Route::post('/{ride}/cancel', [RideController::class, 'cancelRide']);
         Route::post('/{ride}/rate', [RideController::class, 'rateRide']);
         Route::get('/history', [RideController::class, 'getRideHistory']);
+        Route::post('/{ride}/accept', [DriverController::class, 'acceptRide']);
+    });
+    
+    // Test simplified ride controller
+    Route::prefix('simple-rides')->group(function () {
+        Route::post('/request', [SimpleRideController::class, 'requestRide']);
     });
 });
 

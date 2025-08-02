@@ -6,47 +6,115 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Ride;
 use App\Models\Driver;
+use App\Services\RideService;
+use App\Events\RideStatusUpdated;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class RideController extends Controller
 {
+    protected $rideService;
+
+    public function __construct(RideService $rideService)
+    {
+        $this->rideService = $rideService;
+    }
+
     public function requestRide(Request $request)
     {
         $request->validate([
-            'pickup_latitude' => 'required|numeric',
-            'pickup_longitude' => 'required|numeric',
-            'pickup_address' => 'required|string',
-            'drop_latitude' => 'required|numeric',
-            'drop_longitude' => 'required|numeric',
-            'drop_address' => 'required|string',
+            'pickup_latitude' => 'required|numeric|between:-90,90',
+            'pickup_longitude' => 'required|numeric|between:-180,180',
+            'pickup_address' => 'required|string|max:500',
+            'drop_latitude' => 'required|numeric|between:-90,90',
+            'drop_longitude' => 'required|numeric|between:-180,180',
+            'drop_address' => 'required|string|max:500',
             'vehicle_type' => 'required|in:bike,auto,sedan,suv',
-            'payment_method' => 'required|in:cash,wallet,card'
+            'payment_method' => 'required|in:cash,wallet,card',
+            'notes' => 'nullable|string|max:1000'
         ]);
 
         $user = $request->user();
         $rider = $user->rider;
 
         if (!$rider) {
+            // Auto-create rider profile if it doesn't exist
+            $rider = \App\Models\Rider::create([
+                'user_id' => $user->id,
+                'phone' => $user->phone ?? '0000000000',
+                'emergency_contact' => '0000000000',
+                'referral_code' => 'REF' . $user->id . rand(100, 999)
+            ]);
+        }
+
+        // Check if user has any active ride
+        $activeRide = Ride::where('rider_id', $rider->id)
+            ->whereIn('status', ['searching', 'confirmed', 'started'])
+            ->first();
+
+        if ($activeRide) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Rider profile not found'
+                'message' => 'You already have an active ride',
+                'active_ride' => [
+                    'id' => $activeRide->id,
+                    'status' => $activeRide->status,
+                    'pickup_address' => $activeRide->pickup_address,
+                    'drop_address' => $activeRide->drop_address,
+                    'created_at' => $activeRide->created_at
+                ]
+            ], 400);
+        }
+
+        // Check for nearby drivers using spatial service
+        $nearbyDrivers = $this->rideService->findNearbyDrivers(
+            $request->pickup_latitude,
+            $request->pickup_longitude,
+            $request->vehicle_type
+        );
+
+        if ($nearbyDrivers->isEmpty()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No drivers available in your area',
+                'suggestion' => 'Please try again in a few minutes or select a different vehicle type'
             ], 404);
         }
 
-        // Calculate fare based on vehicle type
-        $fareRates = [
-            'bike' => ['base' => 25, 'per_km' => 8],
-            'auto' => ['base' => 35, 'per_km' => 10],
-            'sedan' => ['base' => 50, 'per_km' => 12],
-            'suv' => ['base' => 70, 'per_km' => 15]
-        ];
+        // Calculate distance, duration and dynamic pricing
+        $routeData = $this->rideService->calculateDistanceAndDuration(
+            $request->pickup_latitude,
+            $request->pickup_longitude,
+            $request->drop_latitude,
+            $request->drop_longitude
+        );
 
-        $vehicleType = $request->vehicle_type;
-        $baseFare = $fareRates[$vehicleType]['base'];
-        $perKmRate = $fareRates[$vehicleType]['per_km'];
-        $estimatedDistance = 5.5; // Mock distance in km - in production, calculate using mapping API
-        $estimatedFare = $baseFare + ($estimatedDistance * $perKmRate);
+        // Check if it's night time (10 PM to 6 AM)
+        $isNightTime = Carbon::now()->hour >= 22 || Carbon::now()->hour < 6;
 
+        // Get current surge factor
+        $surgeFactor = $this->rideService->getCurrentSurgeFactor(
+            $request->pickup_latitude,
+            $request->pickup_longitude,
+            $request->vehicle_type
+        );
+
+        // Calculate dynamic pricing
+        $pricingData = $this->rideService->calculatePrice(
+            $routeData['distance'],
+            $routeData['duration'],
+            $request->vehicle_type,
+            $isNightTime,
+            $surgeFactor
+        );
+
+        // Generate unique ride ID
+        $rideId = 'TXI' . time() . rand(1000, 9999);
+
+        // Create ride record with enhanced data
         $ride = Ride::create([
+            'ride_id' => $rideId,
             'rider_id' => $rider->id,
             'pickup_latitude' => $request->pickup_latitude,
             'pickup_longitude' => $request->pickup_longitude,
@@ -56,30 +124,58 @@ class RideController extends Controller
             'drop_address' => $request->drop_address,
             'vehicle_type' => $request->vehicle_type,
             'payment_method' => $request->payment_method,
+            'distance' => $routeData['distance'],
+            'estimated_duration' => $routeData['duration'],
+            'estimated_fare' => $pricingData['total_fare'],
+            'base_fare' => $pricingData['base_fare'],
+            'distance_fare' => $pricingData['distance_fare'],
+            'time_fare' => $pricingData['time_fare'],
+            'night_charges' => $pricingData['night_charges'],
+            'surge_multiplier' => $pricingData['surge_multiplier'],
+            'per_km_charge' => $pricingData['distance_fare'] / $routeData['distance'],
             'status' => 'searching',
-            'ride_id' => 'TXI' . time() . rand(1000, 9999),
-            'estimated_fare' => $estimatedFare,
-            'base_fare' => $baseFare,
-            'per_km_charge' => $perKmRate,
+            'notes' => $request->notes,
             'otp' => rand(1000, 9999)
         ]);
 
-        // Find available drivers with matching vehicle type
-        $availableDrivers = Driver::where('vehicle_type', $vehicleType)
-            ->where('is_online', true)
-            ->where('is_available', true)
-            ->where('approval_status', 'approved')
-            ->whereNotNull('current_latitude')
-            ->whereNotNull('current_longitude')
-            ->get();
+        // Update spatial columns
+        DB::statement("
+            UPDATE rides 
+            SET pickup_location = POINT(?, ?), 
+                drop_location = POINT(?, ?)
+            WHERE id = ?
+        ", [
+            $request->pickup_longitude, $request->pickup_latitude,
+            $request->drop_longitude, $request->drop_latitude,
+            $ride->id
+        ]);
+
+        // Broadcast ride request to nearby drivers
+        broadcast(new RideStatusUpdated($ride->id, 'searching', null, null));
 
         return response()->json([
             'status' => 'success',
             'message' => 'Ride requested successfully',
             'data' => [
-                'ride' => $ride,
-                'available_drivers_count' => $availableDrivers->count(),
-                'estimated_wait_time' => '5-8 minutes'
+                'ride' => [
+                    'id' => $ride->id,
+                    'ride_id' => $ride->ride_id,
+                    'status' => $ride->status,
+                    'pickup_address' => $ride->pickup_address,
+                    'drop_address' => $ride->drop_address,
+                    'vehicle_type' => $ride->vehicle_type,
+                    'payment_method' => $ride->payment_method,
+                    'estimated_fare' => $ride->estimated_fare,
+                    'distance' => $ride->distance,
+                    'estimated_duration' => $ride->estimated_duration,
+                    'otp' => $ride->otp,
+                    'created_at' => $ride->created_at
+                ],
+                'nearby_drivers_count' => $nearbyDrivers->count(),
+                'pricing_breakdown' => $pricingData,
+                'estimated_arrival' => $routeData['duration'] . ' minutes',
+                'surge_active' => $surgeFactor > 1.0,
+                'night_charges_applied' => $isNightTime
             ]
         ]);
     }
@@ -113,7 +209,28 @@ class RideController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data' => $ride
+            'data' => [
+                'id' => $ride->id,
+                'ride_id' => $ride->ride_id,
+                'status' => $ride->status,
+                'pickup_address' => $ride->pickup_address,
+                'drop_address' => $ride->drop_address,
+                'vehicle_type' => $ride->vehicle_type,
+                'payment_method' => $ride->payment_method,
+                'estimated_fare' => $ride->estimated_fare,
+                'actual_fare' => $ride->actual_fare,
+                'distance' => $ride->distance,
+                'estimated_duration' => $ride->estimated_duration,
+                'otp' => $ride->otp,
+                'driver' => $ride->driver ? [
+                    'name' => $ride->driver->user->name,
+                    'phone' => $ride->driver->phone,
+                    'vehicle_number' => $ride->driver->vehicle_number
+                ] : null,
+                'created_at' => $ride->created_at,
+                'accepted_at' => $ride->accepted_at,
+                'completed_at' => $ride->completed_at
+            ]
         ]);
     }
 
@@ -148,7 +265,7 @@ class RideController extends Controller
             ], 403);
         }
 
-        if (!in_array($ride->status, ['pending', 'accepted'])) {
+        if (!in_array($ride->status, ['searching', 'pending', 'accepted'])) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Ride cannot be cancelled at this stage'
@@ -170,7 +287,14 @@ class RideController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Ride cancelled successfully',
-            'data' => $ride
+            'data' => [
+                'id' => $ride->id,
+                'ride_id' => $ride->ride_id,
+                'status' => $ride->status,
+                'cancelled_at' => $ride->cancelled_at,
+                'cancelled_by' => $ride->cancelled_by,
+                'cancellation_reason' => $ride->cancellation_reason
+            ]
         ]);
     }
 
@@ -219,7 +343,14 @@ class RideController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Rating submitted successfully',
-            'data' => $ride
+            'data' => [
+                'id' => $ride->id,
+                'ride_id' => $ride->ride_id,
+                'rider_rating' => $ride->rider_rating,
+                'rider_review' => $ride->rider_review,
+                'driver_rating' => $ride->driver_rating,
+                'driver_review' => $ride->driver_review
+            ]
         ]);
     }
 
@@ -244,7 +375,33 @@ class RideController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data' => $rides
+            'data' => [
+                'rides' => $rides->map(function ($ride) {
+                    return [
+                        'id' => $ride->id,
+                        'ride_id' => $ride->ride_id,
+                        'status' => $ride->status,
+                        'pickup_address' => $ride->pickup_address,
+                        'drop_address' => $ride->drop_address,
+                        'vehicle_type' => $ride->vehicle_type,
+                        'estimated_fare' => $ride->estimated_fare,
+                        'actual_fare' => $ride->actual_fare,
+                        'distance' => $ride->distance,
+                        'created_at' => $ride->created_at,
+                        'completed_at' => $ride->completed_at,
+                        'driver' => $ride->driver ? [
+                            'name' => $ride->driver->user->name ?? 'Unknown',
+                            'vehicle_number' => $ride->driver->vehicle_number
+                        ] : null
+                    ];
+                }),
+                'pagination' => [
+                    'current_page' => $rides->currentPage(),
+                    'total' => $rides->total(),
+                    'per_page' => $rides->perPage(),
+                    'last_page' => $rides->lastPage()
+                ]
+            ]
         ]);
     }
 }

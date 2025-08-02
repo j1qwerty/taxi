@@ -128,134 +128,93 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // Create Driver Profiles
-        $driverProfile1 = Driver::create([
-            'user_id' => $driver1->id,
-            'vehicle_type' => 'sedan',
-            'vehicle_number' => 'ABC123',
-            'vehicle_model' => 'Toyota Camry 2020',
-            'vehicle_color' => 'Black',
-            'driving_license' => 'DL123456789',
-            'license_expiry' => '2026-12-31',
-            'is_online' => true,
-            'is_available' => true,
-            'approval_status' => 'approved',
-            'referral_code' => 'DRIVER001',
-            'wallet_balance' => 500.00,
-            'rating' => 4.5,
-            'total_rides' => 25,
-            'current_latitude' => 28.6139,
-            'current_longitude' => 77.2090,
+        DB::statement("
+            INSERT INTO drivers (user_id, vehicle_type, vehicle_number, vehicle_model, vehicle_color, 
+                               driving_license, license_expiry, is_online, is_available, approval_status, 
+                               referral_code, wallet_balance, rating, total_rides, current_latitude, 
+                               current_longitude, location, created_at, updated_at) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, POINT(?, ?), NOW(), NOW())
+        ", [
+            $driver1->id, 'sedan', 'ABC123', 'Toyota Camry 2020', 'Black',
+            'DL123456789', '2026-12-31', 1, 1, 'approved', 'DRIVER001',
+            500.00, 4.5, 25, 28.6139, 77.2090, 77.2090, 28.6139
         ]);
 
-        $driverProfile2 = Driver::create([
-            'user_id' => $driver2->id,
-            'vehicle_type' => 'suv',
-            'vehicle_number' => 'XYZ789',
-            'vehicle_model' => 'Honda CR-V 2021',
-            'vehicle_color' => 'White',
-            'driving_license' => 'DL987654321',
-            'license_expiry' => '2025-06-30',
-            'is_online' => true,
-            'is_available' => true,
-            'approval_status' => 'approved',
-            'referral_code' => 'DRIVER002',
-            'wallet_balance' => 750.00,
-            'rating' => 4.8,
-            'total_rides' => 40,
-            'current_latitude' => 28.6129,
-            'current_longitude' => 77.2295,
+        $driverProfile1 = Driver::where('user_id', $driver1->id)->first();
+
+        DB::statement("
+            INSERT INTO drivers (user_id, vehicle_type, vehicle_number, vehicle_model, vehicle_color, 
+                               driving_license, license_expiry, is_online, is_available, approval_status, 
+                               referral_code, wallet_balance, rating, total_rides, current_latitude, 
+                               current_longitude, location, created_at, updated_at) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, POINT(?, ?), NOW(), NOW())
+        ", [
+            $driver2->id, 'suv', 'XYZ789', 'Honda CR-V 2021', 'White',
+            'DL987654321', '2025-06-30', 1, 1, 'approved', 'DRIVER002',
+            750.00, 4.8, 40, 28.6129, 77.2295, 77.2295, 28.6129
         ]);
 
-        $driverProfile3 = Driver::create([
-            'user_id' => $driver3->id,
-            'vehicle_type' => 'bike',
-            'vehicle_number' => 'MNO456',
-            'vehicle_model' => 'Hero Splendor 2022',
-            'vehicle_color' => 'Red',
-            'driving_license' => 'DL456789123',
-            'license_expiry' => '2027-03-15',
-            'is_online' => false,
-            'is_available' => false,
-            'approval_status' => 'pending',
-            'referral_code' => 'DRIVER003',
-            'wallet_balance' => 200.00,
-            'rating' => 4.0,
-            'total_rides' => 10,
-            'current_latitude' => 28.6119,
-            'current_longitude' => 77.2190,
+        $driverProfile2 = Driver::where('user_id', $driver2->id)->first();
+
+        DB::statement("
+            INSERT INTO drivers (user_id, vehicle_type, vehicle_number, vehicle_model, vehicle_color, 
+                               driving_license, license_expiry, is_online, is_available, approval_status, 
+                               referral_code, wallet_balance, rating, total_rides, current_latitude, 
+                               current_longitude, location, created_at, updated_at) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, POINT(?, ?), NOW(), NOW())
+        ", [
+            $driver3->id, 'bike', 'MNO456', 'Hero Splendor 2022', 'Red',
+            'DL456789123', '2027-03-15', 0, 0, 'pending', 'DRIVER003',
+            200.00, 4.0, 10, 28.6119, 77.2190, 77.2190, 28.6119
         ]);
 
-        // Create Demo Rides
-        $ride1 = Ride::create([
-            'ride_id' => 'RIDE001',
-            'rider_id' => $riderProfile1->id,
-            'driver_id' => $driverProfile1->id,
-            'pickup_address' => '123 Main St, City1',
-            'pickup_latitude' => 28.6139,
-            'pickup_longitude' => 77.2090,
-            'drop_address' => '456 Office Blvd, City1',
-            'drop_latitude' => 28.6239,
-            'drop_longitude' => 77.2190,
-            'distance' => 5.5,
-            'estimated_fare' => 150.00,
-            'actual_fare' => 145.00,
-            'base_fare' => 50.00,
-            'per_km_charge' => 15.00,
-            'status' => 'completed',
-            'otp' => '1234',
-            'otp_verified' => true,
-            'payment_method' => 'cash',
-            'payment_status' => 'completed',
-            'ride_start_time' => Carbon::now()->subHours(2),
-            'ride_end_time' => Carbon::now()->subHours(1),
-            'rider_rating' => 5,
-            'driver_rating' => 4,
+        $driverProfile3 = Driver::where('user_id', $driver3->id)->first();
+
+        // Create Demo Rides with spatial data
+        DB::statement("
+            INSERT INTO rides (ride_id, rider_id, driver_id, pickup_address, pickup_latitude, pickup_longitude,
+                             drop_address, drop_latitude, drop_longitude, distance, estimated_fare, actual_fare,
+                             base_fare, per_km_charge, status, otp, otp_verified, payment_method, payment_status,
+                             ride_start_time, ride_end_time, rider_rating, driver_rating, pickup_location, 
+                             drop_location, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, POINT(?, ?), POINT(?, ?), NOW(), NOW())
+        ", [
+            'RIDE001', $riderProfile1->id, $driverProfile1->id, '123 Main St, City1', 28.6139, 77.2090,
+            '456 Office Blvd, City1', 28.6239, 77.2190, 5.5, 150.00, 145.00, 50.00, 15.00, 'completed',
+            '1234', 1, 'cash', 'completed', Carbon::now()->subHours(2), Carbon::now()->subHours(1),
+            5, 4, 77.2090, 28.6139, 77.2190, 28.6239
         ]);
 
-        $ride2 = Ride::create([
-            'ride_id' => 'RIDE002',
-            'rider_id' => $riderProfile2->id,
-            'driver_id' => $driverProfile2->id,
-            'pickup_address' => '789 Oak Ave, City2',
-            'pickup_latitude' => 28.6129,
-            'pickup_longitude' => 77.2295,
-            'drop_address' => '101 Business St, City2',
-            'drop_latitude' => 28.6329,
-            'drop_longitude' => 77.2395,
-            'distance' => 8.2,
-            'estimated_fare' => 200.00,
-            'actual_fare' => 195.00,
-            'base_fare' => 50.00,
-            'per_km_charge' => 18.00,
-            'status' => 'started',
-            'otp' => '5678',
-            'otp_verified' => true,
-            'payment_method' => 'wallet',
-            'payment_status' => 'pending',
-            'ride_start_time' => Carbon::now()->subMinutes(30),
+        $ride1 = Ride::where('ride_id', 'RIDE001')->first();
+
+        DB::statement("
+            INSERT INTO rides (ride_id, rider_id, driver_id, pickup_address, pickup_latitude, pickup_longitude,
+                             drop_address, drop_latitude, drop_longitude, distance, estimated_fare, actual_fare,
+                             base_fare, per_km_charge, status, otp, otp_verified, payment_method, payment_status,
+                             ride_start_time, pickup_location, drop_location, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, POINT(?, ?), POINT(?, ?), NOW(), NOW())
+        ", [
+            'RIDE002', $riderProfile2->id, $driverProfile2->id, '789 Oak Ave, City2', 28.6129, 77.2295,
+            '101 Business St, City2', 28.6329, 77.2395, 8.2, 200.00, 195.00, 50.00, 18.00, 'started',
+            '5678', 1, 'wallet', 'pending', Carbon::now()->subMinutes(30),
+            77.2295, 28.6129, 77.2395, 28.6329
         ]);
 
-        $ride3 = Ride::create([
-            'ride_id' => 'RIDE003',
-            'rider_id' => $riderProfile3->id,
-            'driver_id' => null,
-            'pickup_address' => '321 Pine St, City3',
-            'pickup_latitude' => 28.6119,
-            'pickup_longitude' => 77.2190,
-            'drop_address' => '654 Corporate Ave, City3',
-            'drop_latitude' => 28.6219,
-            'drop_longitude' => 77.2290,
-            'distance' => 3.5,
-            'estimated_fare' => 120.00,
-            'actual_fare' => null,
-            'base_fare' => 50.00,
-            'per_km_charge' => 15.00,
-            'status' => 'searching',
-            'otp' => '9012',
-            'otp_verified' => false,
-            'payment_method' => 'online',
-            'payment_status' => 'pending',
+        $ride2 = Ride::where('ride_id', 'RIDE002')->first();
+
+        DB::statement("
+            INSERT INTO rides (ride_id, rider_id, driver_id, pickup_address, pickup_latitude, pickup_longitude,
+                             drop_address, drop_latitude, drop_longitude, distance, estimated_fare, actual_fare,
+                             base_fare, per_km_charge, status, otp, otp_verified, payment_method, payment_status,
+                             pickup_location, drop_location, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, POINT(?, ?), POINT(?, ?), NOW(), NOW())
+        ", [
+            'RIDE003', $riderProfile3->id, null, '321 Pine St, City3', 28.6119, 77.2190,
+            '654 Corporate Ave, City3', 28.6219, 77.2290, 3.5, 120.00, null, 50.00, 15.00, 'searching',
+            '9012', 0, 'online', 'pending', 77.2190, 28.6119, 77.2290, 28.6219
         ]);
+
+        $ride3 = Ride::where('ride_id', 'RIDE003')->first();
 
         // Create Earnings for completed rides
         DB::table('earnings')->insert([
